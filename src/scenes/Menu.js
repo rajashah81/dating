@@ -145,27 +145,49 @@ view.on('text', async (ctx) => {
     }
     
 
-    static ViewMessage() {
-        const view_message = new Scenes.BaseScene('viewmessage');
+static ViewMessage() {
+    const view_message = new Scenes.BaseScene('viewmessage');
 
-        view_message.enter(async (ctx) => {
-            await ctx.reply(SCENES_TEXT.view_message_enter);
-        });
+    view_message.enter(async (ctx) => {
+        await ctx.reply(SCENES_TEXT.view_message_enter);
+    });
 
-        view_message.on('text', async (ctx) => {
-            await DatabaseHelper.newLikeMessage({ chatId: ctx.chat.id, memberId: ctx.session.memberId, message: ctx.message.text });
+    view_message.on('text', async (ctx) => {
+        try {
+            // Save the user's message
+            await DatabaseHelper.newLikeMessage({
+                chatId: ctx.chat.id,
+                memberId: ctx.session.memberId,
+                message: ctx.message.text
+            });
+
+            // Try sending the message to the member
             try {
                 await ctx.telegram.sendMessage(ctx.session.memberId, SCENES_TEXT.view_like);
-                } catch (error) {
+            } catch (error) {
+                if (error.response?.error_code === 400) {
+                    console.error(`Failed to send message to chat ID: ${ctx.session.memberId}. ${error.response.description}`);
+                    await DatabaseHelper.markUserInactive(ctx.session.memberId);
+                } else {
+                    console.error('Unexpected error while sending message:', error);
+                }
+            }
+
+            // Redirect the user to the view scene
             await ctx.scene.enter('view');
-            }});
+        } catch (err) {
+            console.error('Unexpected error in ViewMessage scene:', err);
+            await ctx.reply(SCENES_TEXT.view_message_error);
+        }
+    });
 
-        view_message.on('message', async (ctx) => {
-            return await ctx.reply(SCENES_TEXT.view_message_error);
-        });
+    view_message.on('message', async (ctx) => {
+        return await ctx.reply(SCENES_TEXT.view_message_error);
+    });
 
-        return view_message;
-    }
+    return view_message;
+}
+
 
     static Profile() {
         const profile = new Scenes.BaseScene('profile');
