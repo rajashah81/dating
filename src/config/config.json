@@ -1,0 +1,7 @@
+{
+    "token": "7889338296:AAGMoK1C4rNtIjV_MY2bw-wWIsix3azQV_Y",
+    "dataURL": "mongodb+srv://kafoj40865:yme0rlvRHY5IZO1C@cluster0.gwac1.mongodb.net/",
+    "min": 17,
+    "max": 65,
+    "providerToken": "YOUR_PAYMENT_PROVIDER_TOKEN"
+}

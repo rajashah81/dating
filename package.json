@@ -1,0 +1,21 @@
+{
+  "name": "telegram-bot",
+  "version": "1.0.0",
+  "description": "Telegram dating bot",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "Jason Kings",
+  "license": "ISC",
+  "engines": {
+    "node": "18.x"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "mongoose": "^7.4.2",
+    "telegraf": "^4.16.3",
+    "telegraf-session-mongodb": "^2.0.2"
+  }
+}
