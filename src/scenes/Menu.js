@@ -137,8 +137,32 @@ export default class Menu {
 
         return view;
     }
+    
+    static async sendLikeMessage(ctx, memberId, message) {
+        try {
+            // Check if the chat exists (i.e., the user is reachable)
+            await ctx.telegram.getChat(memberId);
 
-    static ViewMessage() {
+            // If no error is thrown, send the message
+            await ctx.telegram.sendMessage(memberId, message);
+        } catch (error) {
+            if (error.response?.error_code === 400) {
+                // Handle the "chat not found" error
+                console.error(`Failed to send message to chat ID: ${memberId}. ${error.response.description}`);
+                
+                // Mark the user inactive in the database
+                await DatabaseHelper.markUserInactive(memberId);
+
+                // Notify the user that the member is unreachable
+                await ctx.reply("The member's chat is unavailable.");
+            } else {
+                // Handle other errors
+                console.error("Unexpected error while sending message:", error);
+                await ctx.reply("An unexpected error occurred while sending the message.");
+            }
+        }
+    }
+static ViewMessage() {
         const view_message = new Scenes.BaseScene('viewmessage');
 
         view_message.enter(async (ctx) => {
@@ -161,30 +185,14 @@ export default class Menu {
             }
 
             try {
-                // Check if the user is valid
-                const userExists = await ctx.telegram.getChat(userId);
-                if (!userExists) {
-                    await ctx.reply("This user is no longer available.");
-                    return;
-                }
-
                 // Save the like message to the database
                 await DatabaseHelper.newLikeMessage({ userId, memberId, message });
 
-                // Try sending the message to the member
-                try {
-                    await ctx.telegram.sendMessage(memberId, SCENES_TEXT.view_like);
-                    await ctx.scene.enter('view');
-                } catch (error) {
-                    if (error.response?.error_code === 400) {
-                        console.error(`Failed to send message to chat ID: ${memberId}. ${error.response.description}`);
-                        await DatabaseHelper.markUserInactive(memberId); // Mark the user inactive if they are no longer reachable
-                        await ctx.reply("The member's chat is unavailable.");
-                    } else {
-                        console.error("Unexpected error while sending message:", error);
-                        await ctx.reply("An unexpected error occurred while sending the message.");
-                    }
-                }
+                // Send the like message to the member
+                await Menu.sendLikeMessage(ctx, memberId, SCENES_TEXT.view_like);
+
+                // Enter the 'view' scene after sending the message
+                await ctx.scene.enter('view');
             } catch (error) {
                 console.error("Error saving like message:", error);
                 await ctx.reply("An error occurred while processing your message.");
