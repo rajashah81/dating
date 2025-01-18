@@ -142,38 +142,35 @@ static ViewMessage() {
         await ctx.reply(SCENES_TEXT.view_message_enter);
     });
 
-view_message.on('text', async (ctx) => {
-    try {
-        const messageText = ctx.message.text;
-        
-        // Ensure that userId and memberId are set properly before saving the like
-        const userId = ctx.chat.id;  // This is the user who liked
-        const memberId = ctx.session.memberId;  // This is the member whose profile is liked
+    view_message.on('text', async (ctx) => {
+        // Ensure userId is retrieved correctly from ctx.from.id
+        const userId = ctx.from.id;
 
-        if (!memberId) {
-            await ctx.reply("Error: Member ID is missing.");
+        if (!userId) {
+            await ctx.reply("Could not retrieve user information. Please try again.");
             return;
         }
 
-        // Save the like message with userId, memberId, and message text
-        await DatabaseHelper.newLikeMessage({
-            userId,
-            memberId,
-            message: messageText
-        });
+        // Assuming you want to save a new like message, you need the memberId too
+        const memberId = ctx.session.memberId;
 
-        // Notify the user about the like
-        await ctx.telegram.sendMessage(memberId, SCENES_TEXT.view_like);
+        if (!memberId) {
+            await ctx.reply("No member profile found.");
+            return;
+        }
 
-        // Continue with history and scene transition
-        await DatabaseHelper.pushHistory({ ctx, memberId });
-        await ctx.scene.enter('view');
-    } catch (error) {
-        console.error("Error saving like message:", error);
-        await ctx.reply("An error occurred while processing your like message.");
-    }
-});
+        const message = ctx.message.text;
 
+        // Now we can save the like message
+        try {
+            await DatabaseHelper.newLikeMessage({ userId, memberId, message });
+            await ctx.telegram.sendMessage(memberId, SCENES_TEXT.view_like);
+            await ctx.scene.enter('view');
+        } catch (error) {
+            console.error("Error saving like message:", error);
+            await ctx.reply("An error occurred while processing your message.");
+        }
+    });
 
     view_message.on('message', async (ctx) => {
         return await ctx.reply(SCENES_TEXT.view_message_error);
@@ -181,6 +178,7 @@ view_message.on('text', async (ctx) => {
 
     return view_message;
 }
+
 
 
     static Profile() {
