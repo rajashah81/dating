@@ -10,11 +10,12 @@ export default class Menu {
 
         main.enter(async (ctx) => {
             await ctx.reply(SCENES_TEXT.main_enter, {
-                ...menuButton,
-                reply_markup: Markup.keyboard([
-                    [BUTTON_TEXT.view_profiles, BUTTON_TEXT.my_profile, BUTTON_TEXT.likes, BUTTON_TEXT.hide_profile],
-                    [BUTTON_TEXT.subscribe]  // Add subscribe button here
-                ]).resize()
+                ...Markup.keyboard([
+                    [BUTTON_TEXT.view_profiles],
+                    [BUTTON_TEXT.my_profile],
+                    [BUTTON_TEXT.likes],
+                    [BUTTON_TEXT.hide_profile],
+                ]).resize(),
             });
         });
 
@@ -31,9 +32,6 @@ export default class Menu {
                     break;
                 case BUTTON_TEXT.hide_profile:
                     await ctx.scene.enter('hide');
-                    break;
-                case BUTTON_TEXT.subscribe: // If subscribe button is clicked
-                    await ctx.scene.enter('subscription');
                     break;
                 default:
                     await ctx.reply(SCENES_TEXT.register_wrong_asnwer);
@@ -93,53 +91,45 @@ export default class Menu {
                 const { chatId, name, age, city, description, photo } = result;
                 ctx.session.memberId = chatId;
 
-                await ctx.replyWithPhoto({ url: photo }, { caption: `${name}, ${age}, ${city} ${description === 'Skip' ? '' : ' - ' + description}`, ...viewProfileButton });
+                await ctx.replyWithPhoto(
+                    { url: photo },
+                    {
+                        caption: `${name}, ${age}, ${city} ${description === 'Skip' ? '' : ' - ' + description}`,
+                        ...Markup.inlineKeyboard([
+                            [Markup.button.callback(BUTTON_TEXT.view_like, 'like')],
+                            [Markup.button.callback(BUTTON_TEXT.return_menu, 'return_menu')],
+                        ]),
+                    }
+                );
             } else {
                 await ctx.reply(SCENES_TEXT.view_error);
                 return ctx.scene.enter('main');
             }
         });
 
-view.on('text', async (ctx) => {
-    try {
-        switch (ctx.message.text) {
-            case BUTTON_TEXT.view_like:
-                await DatabaseHelper.newLike({ userId: ctx.chat.id, memberId: ctx.session.memberId });
-                try {
-                    await ctx.telegram.sendMessage(ctx.session.memberId, SCENES_TEXT.view_like);
-                } catch (error) {
-                    if (error.response?.error_code === 400) {
-                        console.error(`Failed to send message to chat ID: ${ctx.session.memberId}. ${error.response.description}`);
-                        await DatabaseHelper.markUserInactive(ctx.session.memberId);
-                    }
-                }
-                await DatabaseHelper.pushHistory({ ctx, memberId: ctx.session.memberId });
-                await ctx.scene.enter('view');
-                break;
+        view.action('like', async (ctx) => {
+            const userId = ctx.chat.id;
+            const memberId = ctx.session.memberId;
 
-            case BUTTON_TEXT.view_message:
-                await DatabaseHelper.pushHistory({ ctx, memberId: ctx.session.memberId });
-                await ctx.scene.enter('viewmessage');
-                break;
+            if (!userId || !memberId) {
+                await ctx.reply('User ID or Member ID is missing.');
+                return ctx.scene.enter('main');
+            }
 
-            case BUTTON_TEXT.view_unlike:
-                await DatabaseHelper.pushHistory({ ctx, memberId: ctx.session.memberId });
-                await ctx.scene.enter('view');
-                break;
+            try {
+                await DatabaseHelper.newLike({ userId, memberId });
+                await ctx.telegram.sendMessage(memberId, SCENES_TEXT.view_like);
+                await DatabaseHelper.pushHistory({ ctx, memberId });
+                await ctx.scene.reenter();
+            } catch (error) {
+                await ctx.reply('An error occurred while liking the profile. Please try again.');
+                console.error(error);
+            }
+        });
 
-            case BUTTON_TEXT.return_menu:
-                await ctx.scene.enter('main');
-                break;
-
-            default:
-                await ctx.reply(SCENES_TEXT.register_wrong_asnwer);
-                break;
-        }
-    } catch (err) {
-        console.error('Unexpected error in View scene:', err);
-    }
-});
-
+        view.action('return_menu', async (ctx) => {
+            await ctx.scene.enter('main');
+        });
 
         return view;
     }
