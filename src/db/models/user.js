@@ -20,7 +20,7 @@ const reqBoolen = {
     required: true
 }
 
-const schema = Schema({
+const userSchema = Schema({
     chatId: reqString,
     name: reqString,
     age: reqNumber,
