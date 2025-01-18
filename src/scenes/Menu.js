@@ -100,30 +100,46 @@ export default class Menu {
             }
         });
 
-        view.on('text', async (ctx) => {
-            switch (ctx.message.text) {
-                case BUTTON_TEXT.view_like:
-                    await DatabaseHelper.newLike({ userId: ctx.chat.id, memberId: ctx.session.memberId });
-                    ctx.telegram.sendMessage(ctx.session.memberId, SCENES_TEXT.view_like);
-                    await DatabaseHelper.pushHistory({ ctx: ctx, memberId: ctx.session.memberId });
-                    await ctx.scene.enter('view');
-                    break;
-                case BUTTON_TEXT.view_message:
-                    await DatabaseHelper.pushHistory({ ctx: ctx, memberId: ctx.session.memberId });
-                    await ctx.scene.enter('viewmessage');
-                    break;
-                case BUTTON_TEXT.view_unlike:
-                    await DatabaseHelper.pushHistory({ ctx: ctx, memberId: ctx.session.memberId });
-                    await ctx.scene.enter('view');
-                    break;
-                case BUTTON_TEXT.return_menu:
-                    await ctx.scene.enter('main');
-                    break;
-                default:
-                    await ctx.reply(SCENES_TEXT.register_wrong_asnwer);
-                    break;
-            }
-        });
+view.on('text', async (ctx) => {
+    try {
+        switch (ctx.message.text) {
+            case BUTTON_TEXT.view_like:
+                await DatabaseHelper.newLike({ userId: ctx.chat.id, memberId: ctx.session.memberId });
+                try {
+                    await ctx.telegram.sendMessage(ctx.session.memberId, SCENES_TEXT.view_like);
+                } catch (error) {
+                    if (error.response?.error_code === 400) {
+                        console.error(`Failed to send message to chat ID: ${ctx.session.memberId}. ${error.response.description}`);
+                        await DatabaseHelper.markUserInactive(ctx.session.memberId);
+                    }
+                }
+                await DatabaseHelper.pushHistory({ ctx, memberId: ctx.session.memberId });
+                await ctx.scene.enter('view');
+                break;
+
+            case BUTTON_TEXT.view_message:
+                await DatabaseHelper.pushHistory({ ctx, memberId: ctx.session.memberId });
+                await ctx.scene.enter('viewmessage');
+                break;
+
+            case BUTTON_TEXT.view_unlike:
+                await DatabaseHelper.pushHistory({ ctx, memberId: ctx.session.memberId });
+                await ctx.scene.enter('view');
+                break;
+
+            case BUTTON_TEXT.return_menu:
+                await ctx.scene.enter('main');
+                break;
+
+            default:
+                await ctx.reply(SCENES_TEXT.register_wrong_asnwer);
+                break;
+        }
+    } catch (err) {
+        console.error('Unexpected error in View scene:', err);
+    }
+});
+
 
         return view;
     }
@@ -216,32 +232,40 @@ export default class Menu {
             }
         });
 
-        likes.on('text', async (ctx) => {
-            const data = await DatabaseHelper.checkLikes({ memberId: ctx.chat.id });
-            const { userId, memberId } = data;
+likes.on('text', async (ctx) => {
+    const data = await DatabaseHelper.checkLikes({ memberId: ctx.chat.id });
+    const { userId, memberId } = data;
 
-            const telegram = new TelegramService(ctx);
-            const name = await telegram._getMemberUsername(ctx, userId);
+    try {
+        const telegram = new TelegramService(ctx);
+        const name = await telegram._getMemberUsername(ctx, userId);
 
-            const link_member = `<a href="tg://user?id=${memberId}">${ctx.message.from.first_name}</a>`
-            const link_user = `<a href="tg://user?id=${userId}">${name}</a>`
+        const linkMember = `<a href="tg://user?id=${memberId}">${ctx.message.from.first_name}</a>`;
+        const linkUser = `<a href="tg://user?id=${userId}">${name}</a>`;
 
-            if (ctx.message.text === BUTTON_TEXT.view_like) {
-                await ctx.telegram.sendMessage(userId, SCENES_TEXT.likes_message + link_member, {
-                    parse_mode: 'HTML',
-                });
-                await ctx.reply(SCENES_TEXT.likes_message_user + link_user, {
-                    parse_mode: 'HTML',
-                });
-                data.status = false;
-                await data.save();
-                return await ctx.scene.enter('likes');
-            } else {
-                data.status = false;
-                await data.save();
-                return await ctx.scene.enter('likes');
+        if (ctx.message.text === BUTTON_TEXT.view_like) {
+            try {
+                await ctx.telegram.sendMessage(userId, SCENES_TEXT.likes_message + linkMember, { parse_mode: 'HTML' });
+                await ctx.reply(SCENES_TEXT.likes_message_user + linkUser, { parse_mode: 'HTML' });
+            } catch (error) {
+                if (error.response?.error_code === 400) {
+                    console.error(`Failed to send message to chat ID: ${userId}. ${error.response.description}`);
+                    await DatabaseHelper.markUserInactive(userId);
+                }
             }
-        });
+
+            data.status = false;
+            await data.save();
+            return await ctx.scene.enter('likes');
+        } else {
+            data.status = false;
+            await data.save();
+            return await ctx.scene.enter('likes');
+        }
+    } catch (err) {
+        console.error('Unexpected error in Likes scene:', err);
+    }
+});
 
         return likes;
     }
