@@ -1,4 +1,4 @@
-import { Scenes } from 'telegraf';
+import { Scenes, Markup } from 'telegraf';
 import DatabaseHelper from '../helpers/DatabaseHelper.js';
 import { SCENES_TEXT, BUTTON_TEXT } from '../utils/constants.js';
 import { menuButton, profileButton, hideButton, returnMenuButton, viewProfileButton, likeButton, waitButton, subscribeButton } from '../utils/buttons.js';
