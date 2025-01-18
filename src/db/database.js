@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import Logger from '../services/Logger.js';
 import config from '../config/config.json' assert { type: 'json' };
-import User from '../models/user.js';
+import user from '../models/user.js';
 
 // Connect to MongoDB
 export const connectToDatabase = async () => {
