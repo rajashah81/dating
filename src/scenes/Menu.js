@@ -142,34 +142,38 @@ static ViewMessage() {
         await ctx.reply(SCENES_TEXT.view_message_enter);
     });
 
-    view_message.on('text', async (ctx) => {
-        try {
-            // Save the user's message
-            await DatabaseHelper.newLikeMessage({
-                chatId: ctx.chat.id,
-                memberId: ctx.session.memberId,
-                message: ctx.message.text
-            });
+view_message.on('text', async (ctx) => {
+    try {
+        const messageText = ctx.message.text;
+        
+        // Ensure that userId and memberId are set properly before saving the like
+        const userId = ctx.chat.id;  // This is the user who liked
+        const memberId = ctx.session.memberId;  // This is the member whose profile is liked
 
-            // Try sending the message to the member
-            try {
-                await ctx.telegram.sendMessage(ctx.session.memberId, SCENES_TEXT.view_like);
-            } catch (error) {
-                if (error.response?.error_code === 400) {
-                    console.error(`Failed to send message to chat ID: ${ctx.session.memberId}. ${error.response.description}`);
-                    await DatabaseHelper.markUserInactive(ctx.session.memberId);
-                } else {
-                    console.error('Unexpected error while sending message:', error);
-                }
-            }
-
-            // Redirect the user to the view scene
-            await ctx.scene.enter('view');
-        } catch (err) {
-            console.error('Unexpected error in ViewMessage scene:', err);
-            await ctx.reply(SCENES_TEXT.view_message_error);
+        if (!memberId) {
+            await ctx.reply("Error: Member ID is missing.");
+            return;
         }
-    });
+
+        // Save the like message with userId, memberId, and message text
+        await DatabaseHelper.newLikeMessage({
+            userId,
+            memberId,
+            message: messageText
+        });
+
+        // Notify the user about the like
+        await ctx.telegram.sendMessage(memberId, SCENES_TEXT.view_like);
+
+        // Continue with history and scene transition
+        await DatabaseHelper.pushHistory({ ctx, memberId });
+        await ctx.scene.enter('view');
+    } catch (error) {
+        console.error("Error saving like message:", error);
+        await ctx.reply("An error occurred while processing your like message.");
+    }
+});
+
 
     view_message.on('message', async (ctx) => {
         return await ctx.reply(SCENES_TEXT.view_message_error);
