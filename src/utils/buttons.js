@@ -103,5 +103,6 @@ export {
     returnMenuButton,
     viewProfileButton,
     likeButton,
-    waitButton
+    waitButton,
+    subscribeButton
 };
