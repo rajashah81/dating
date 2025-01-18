@@ -146,27 +146,45 @@ export default class Menu {
         });
 
         view_message.on('text', async (ctx) => {
-            // Ensure userId is retrieved correctly from ctx.from.id
             const userId = ctx.from.id;
-
-            if (!userId) {
-                await ctx.reply("Could not retrieve user information. Please try again.");
-                return;
-            }
-
             const memberId = ctx.session.memberId;
-
-            if (!memberId) {
-                await ctx.reply("No member profile found.");
-                return;
-            }
-
             const message = ctx.message.text;
 
+            if (!userId || !memberId) {
+                await ctx.reply("User ID or Member ID is missing.");
+                return;
+            }
+
+            if (!message) {
+                await ctx.reply("No message to send.");
+                return;
+            }
+
             try {
+                // Check if the user is valid
+                const userExists = await ctx.telegram.getChat(userId);
+                if (!userExists) {
+                    await ctx.reply("This user is no longer available.");
+                    return;
+                }
+
+                // Save the like message to the database
                 await DatabaseHelper.newLikeMessage({ userId, memberId, message });
-                await ctx.telegram.sendMessage(memberId, SCENES_TEXT.view_like);
-                await ctx.scene.enter('view');
+
+                // Try sending the message to the member
+                try {
+                    await ctx.telegram.sendMessage(memberId, SCENES_TEXT.view_like);
+                    await ctx.scene.enter('view');
+                } catch (error) {
+                    if (error.response?.error_code === 400) {
+                        console.error(`Failed to send message to chat ID: ${memberId}. ${error.response.description}`);
+                        await DatabaseHelper.markUserInactive(memberId); // Mark the user inactive if they are no longer reachable
+                        await ctx.reply("The member's chat is unavailable.");
+                    } else {
+                        console.error("Unexpected error while sending message:", error);
+                        await ctx.reply("An unexpected error occurred while sending the message.");
+                    }
+                }
             } catch (error) {
                 console.error("Error saving like message:", error);
                 await ctx.reply("An error occurred while processing your message.");
