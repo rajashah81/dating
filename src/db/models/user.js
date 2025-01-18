@@ -34,6 +34,6 @@ const schema = Schema({
     registerDate: reqDate
 });
 
-const User = mongoose.model('User', userSchema);
+const User = model('User', userSchema);
 
 export default User;
