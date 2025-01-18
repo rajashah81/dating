@@ -154,9 +154,11 @@ view.on('text', async (ctx) => {
 
         view_message.on('text', async (ctx) => {
             await DatabaseHelper.newLikeMessage({ chatId: ctx.chat.id, memberId: ctx.session.memberId, message: ctx.message.text });
-            ctx.telegram.sendMessage(ctx.session.memberId, SCENES_TEXT.view_like);
+            try {
+                await ctx.telegram.sendMessage(ctx.session.memberId, SCENES_TEXT.view_like);
+                } catch (error) {
             await ctx.scene.enter('view');
-        });
+            }});
 
         view_message.on('message', async (ctx) => {
             return await ctx.reply(SCENES_TEXT.view_message_error);
